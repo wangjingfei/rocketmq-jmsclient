@@ -22,7 +22,6 @@ public abstract class JmsSendReceiveTestSupport extends TestBase implements Mess
     protected Destination consumerDestination;
     protected Destination producerDestination;
     protected List<Message> messages = createConcurrentList();
-    protected boolean durable;
     protected int deliveryMode = DeliveryMode.PERSISTENT;
     protected final Object lock = new Object();
     protected boolean verbose;
@@ -49,9 +48,6 @@ public abstract class JmsSendReceiveTestSupport extends TestBase implements Mess
 
         connectionFactory = createConnectionFactory();
         connection = createConnection();
-        if (durable) {
-            connection.setClientID(getClass().getName());
-        }
         LOG.info("Created connection: " + connection);
 
         session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
@@ -101,11 +97,8 @@ public abstract class JmsSendReceiveTestSupport extends TestBase implements Mess
             } else {
                 fail("Should have received a reply by now");
             }
-
         }
 
-        producer.close();
-        consumer.close();
         assertMessagesAreReceived();
         LOG.info("" + data.length + " messages(s) received, closing down connections");
     }
@@ -234,6 +227,20 @@ public abstract class JmsSendReceiveTestSupport extends TestBase implements Mess
         return getClass().getName().replace(".", "_");
     }
 
+    protected void tearDown() throws Exception {
+        LOG.info("Dumping stats...");
+        // connectionFactory.getStats().reset();
+
+        LOG.info("Closing down connection");
+
+        /** TODO we should be able to shut down properly */
+        connection.close();
+    }
+
+
+    protected MessageConsumer createConsumer(String messageSelector) throws JMSException {
+        return session.createConsumer(consumerDestination, messageSelector);
+    }
+
     protected abstract Destination createDestination(String subject);
-    protected abstract MessageConsumer createConsumer(String messageSelector) throws JMSException;
 }
