@@ -35,15 +35,22 @@ public class TestJmsClient {
 
 
     @Test
-    public void TestSendTextMessagge_MultiThread() throws JMSException {
-        sendReceiveMessageMultiThread(MessageType.TextMessage);
+    public void TestSendQueueTextMessagge_MultiThread() throws JMSException {
+        sendReceiveMessageMultiThread(MessageType.TextMessage, "queue-producer-context.xml", "queue-consumer-context.xml", true);
 
-        Assert.assertEquals(producer.textMessage, ((TextMessage)messageListener.getMessage()).getText());
+        Assert.assertEquals(producer.textMessage, ((TextMessage) messageListener.getMessage()).getText());
     }
 
     @Test
-    public void TestSendMapMessagge_MultiThread() throws JMSException {
-        sendReceiveMessageMultiThread(MessageType.MapMessage);
+    public void TestSendTopicTextMessagge_MultiThread() throws JMSException {
+        sendReceiveMessageMultiThread(MessageType.TextMessage, "topic-producer-context.xml", "topic-consumer-context.xml", false);
+
+        Assert.assertEquals(producer.textMessage, ((TextMessage) messageListener.getMessage()).getText());
+    }
+
+    @Test
+    public void TestSendQueueMapMessagge_MultiThread() throws JMSException {
+        sendReceiveMessageMultiThread(MessageType.MapMessage, "queue-producer-context.xml", "queue-consumer-context.xml", true);
 
         Assert.assertEquals((short)producer.mapDeptIdValue, ((MapMessageImpl)messageListener.getMessage()).getShort(producer.mapDeptId));
         Assert.assertEquals(producer.mapSideValue, ((MapMessageImpl)messageListener.getMessage()).getString(producer.mapSide));
@@ -56,8 +63,8 @@ public class TestJmsClient {
     }
 
     @Test
-    public void TestSendBytesMessagge_MultiThread() throws JMSException {
-        sendReceiveMessageMultiThread(MessageType.BytesMessage);
+    public void TestSendQueueBytesMessagge_MultiThread() throws JMSException {
+        sendReceiveMessageMultiThread(MessageType.BytesMessage, "queue-producer-context.xml", "queue-consumer-context.xml", true);
 
         Assert.assertEquals(producer.double1, ((BytesMessageImpl) messageListener.getMessage()).readDouble(), 0);
         Assert.assertEquals(producer.double2, ((BytesMessageImpl)messageListener.getMessage()).readDouble(), 0);
@@ -66,23 +73,24 @@ public class TestJmsClient {
     }
 
     @Test
-    public void TestSendStreamMessagge_MultiThread() throws JMSException {
-        sendReceiveMessageMultiThread(MessageType.StreamMessage);
+    public void TestSendQueueStreamMessagge_MultiThread() throws JMSException {
+        sendReceiveMessageMultiThread(MessageType.StreamMessage, "queue-producer-context.xml", "queue-consumer-context.xml", true);
 
-        Assert.assertEquals((double)producer.double1, ((StreamMessageImpl)messageListener.getMessage()).readDouble(), 0);
-        Assert.assertEquals((double)producer.double2, ((StreamMessageImpl)messageListener.getMessage()).readDouble(), 0);
+        Assert.assertEquals(producer.double1, ((StreamMessageImpl)messageListener.getMessage()).readDouble(), 0);
+        Assert.assertEquals(producer.double2, ((StreamMessageImpl)messageListener.getMessage()).readDouble(), 0);
     }
 
     @Test
-    public void TestSendObjectMessagge_MultiThread() throws JMSException {
-        sendReceiveMessageMultiThread(MessageType.ObjectMessage);
+    public void TestSendQueueObjectMessagge_MultiThread() throws JMSException {
+        sendReceiveMessageMultiThread(MessageType.ObjectMessage, "queue-producer-context.xml", "queue-consumer-context.xml", true);
 
         Assert.assertEquals(producer.testObject.value, ((TestObject)((ObjectMessageImpl)messageListener.getMessage()).getObject()).value, 0);
         Assert.assertEquals(producer.testObject.name, ((TestObject)((ObjectMessageImpl)messageListener.getMessage()).getObject()).name);
         Assert.assertEquals(producer.testObject.character, ((TestObject) ((ObjectMessageImpl)messageListener.getMessage()).getObject()).character);
     }
 
-    private void sendReceiveMessageMultiThread(final MessageType msgType) {
+    private void sendReceiveMessageMultiThread(final MessageType msgType, final String producerContextFileName,
+                                               final String consumerContextFileName, final boolean isQueueListener) {
         ExecutorService producerService = Executors.newSingleThreadExecutor();
         ExecutorService consumerService = Executors.newSingleThreadExecutor();
         int timeout = 500;
@@ -90,7 +98,7 @@ public class TestJmsClient {
         consumerService.execute(new Runnable() {
             @Override
             public void run() {
-                receiveMessage();
+                receiveMessage(producerContextFileName, consumerContextFileName, isQueueListener);
             }
         });
 
@@ -123,7 +131,7 @@ public class TestJmsClient {
             producerService.execute(new Runnable() {
                 @Override
                 public void run() {
-                    sendMessage(msgType);
+                    sendMessage(msgType, producerContextFileName);
                 }
             });
 
@@ -141,9 +149,9 @@ public class TestJmsClient {
         consumerService.shutdown();
     }
 
-    private void sendMessage(MessageType messageType) {
+    private void sendMessage(MessageType messageType, String producerContextFileName) {
         ApplicationContext ctx =
-                new ClassPathXmlApplicationContext("producer-context.xml");
+                new ClassPathXmlApplicationContext(producerContextFileName);
         JmsProducer jmsProducer = (JmsProducer)ctx.getBean("jmsProducer");
         producer = jmsProducer;
         try {
@@ -173,11 +181,11 @@ public class TestJmsClient {
         }
     }
 
-    private void receiveMessage() {
+    private void receiveMessage(String producerContextFileName, String consumerContextFileName,boolean isQueueListener) {
         synchronized (waitListnerAvalibleLock) {
             ApplicationContext ctx =
-                    new ClassPathXmlApplicationContext("producer-context.xml", "consumer-context.xml");
-            messageListener = (JmsConsumerAsync)ctx.getBean("messageListener");
+                    new ClassPathXmlApplicationContext(producerContextFileName, consumerContextFileName);
+            messageListener = (JmsConsumerAsync)ctx.getBean(isQueueListener ? "queueMessageListener" : "topicMessageListener");
             waitListnerAvalibleLock.notifyAll();
         }
     }

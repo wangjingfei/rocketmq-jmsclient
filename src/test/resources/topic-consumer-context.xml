@@ -7,14 +7,15 @@
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd
        http://www.springframework.org/schema/jms http://www.springframework.org/schema/jms/spring-jms-2.5.xsd">
 
-    <bean id="messageListener" class="com.rocketmq.community.jms.helper.JmsConsumerAsync" />
+    <bean id="topicMessageListener" class="com.rocketmq.community.jms.helper.JmsConsumerAsync" />
 
-    <bean id="jmsContainer"
+    <bean id="topicListenerContainer"
           class="org.springframework.jms.listener.DefaultMessageListenerContainer">
-        <property name="connectionFactory" ref="queueConnectionFactory"/>
+        <property name="connectionFactory" ref="topicConnectionFactory"/>
         <property name="destinationResolver" ref="destinationResolver"/>
         <property name="concurrentConsumers" value="1" />
-        <property name="destinationName" value="queue1"/>
-        <property name="messageListener" ref="messageListener" />
+        <property name="destinationName" value="topic1"/>
+        <property name="messageListener" ref="topicMessageListener" />
+        <property name="pubSubDomain" value="true" />
     </bean>
 </beans>

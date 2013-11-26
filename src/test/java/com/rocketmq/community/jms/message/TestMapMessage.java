@@ -1,4 +1,4 @@
-package com.rocketmq.community.jms;
+package com.rocketmq.community.jms.message;
 
 import com.rocketmq.community.jms.message.MapMessageImpl;
 import org.junit.Assert;

@@ -683,10 +683,11 @@ public abstract class SequenceMessageImpl extends MessageBase {
         }
 
         Message message = new Message(this.getJMSDestination().toString(), // topic
-                JMS_SOURCE,  // tag
+                JMS_SOURCE + getTag(),  // tag
                 bytesOut.toByteArray());  // body
         setMessageTypeProperty(message);
 
+        copyProperties(message);
         return message;
     }
 

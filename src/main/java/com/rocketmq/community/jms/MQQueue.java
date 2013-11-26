@@ -13,6 +13,6 @@ public class MQQueue extends MQDestination implements Queue {
     }
 
     public String toString() {
-        return name;
+        return "Queue_" + name;
     }
 }

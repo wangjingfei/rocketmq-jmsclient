@@ -1,25 +1,55 @@
 package com.rocketmq.community.jms;
 
 import com.alibaba.rocketmq.client.consumer.DefaultMQPullConsumer;
+import com.alibaba.rocketmq.client.consumer.DefaultMQPushConsumer;
 import com.alibaba.rocketmq.client.exception.MQClientException;
 
 import com.alibaba.rocketmq.client.producer.DefaultMQProducer;
 import com.alibaba.rocketmq.client.producer.MQProducer;
 import com.alibaba.rocketmq.client.producer.TransactionMQProducer;
+import com.alibaba.rocketmq.common.protocol.heartbeat.MessageModel;
 import com.rocketmq.community.jms.message.*;
 import com.rocketmq.community.jms.util.JMSExceptionSupport;
 
 import javax.jms.*;
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 
-public class MQSession implements Session, QueueSession {
+public class MQSession implements QueueSession, TopicSession {
     private MQConnection connection;
     int acknowledgeMode;
+    private List<MQMessageProducer> producers;
+    private List<MQMessageConsumer> consumers;
+
 
     public MQSession(MQConnection connection, int acknowledgeMode) {
         this.connection = connection;
         this.acknowledgeMode = acknowledgeMode;
+        producers = new CopyOnWriteArrayList<MQMessageProducer>();
+        consumers = new CopyOnWriteArrayList<MQMessageConsumer>();
+        connection.addSession(this);
+    }
+
+    @Override
+    public TopicSubscriber createSubscriber(Topic topic) throws JMSException {
+        throw new JMSException(Thread.currentThread().getStackTrace()[1].getMethodName() + ": Not supported");
+    }
+
+    @Override
+    public TopicSubscriber createSubscriber(Topic topic, String messageSelector, boolean noLocal) throws JMSException {
+        throw new JMSException(Thread.currentThread().getStackTrace()[1].getMethodName() + ": Not supported");
+    }
+
+    @Override
+    public TopicPublisher createPublisher(Topic topic) throws JMSException {
+        try {
+            return new MQTopicPublisher(this, createTargetProducer(topic), topic);
+        } catch (Exception ex) {
+            throw JMSExceptionSupport.create(ex);
+        }
     }
 
     // Implement Session
@@ -87,7 +117,25 @@ public class MQSession implements Session, QueueSession {
 
     @Override
     public void close() throws JMSException {
-        throw new JMSException(Thread.currentThread().getStackTrace()[1].getMethodName() + ": Not supported");
+        for (MessageProducer producer : producers) {
+            producer.close();
+        }
+        producers.clear();
+
+        for (MessageConsumer consumer : consumers) {
+            consumer.close();
+        }
+        consumers.clear();
+    }
+
+    protected void start() throws JMSException {
+        for (MQMessageProducer producer : producers) {
+            producer.start();
+        }
+
+        for (MQMessageConsumer consumer : consumers) {
+            consumer.start();
+        }
     }
 
     @Override
@@ -112,7 +160,20 @@ public class MQSession implements Session, QueueSession {
 
     @Override
     public MessageProducer createProducer(Destination destination) throws JMSException {
+        try {
+            return new MQMessageProducer(this, createTargetProducer(destination), destination);
+        } catch (Exception ex) {
+            throw JMSExceptionSupport.create(ex);
+        }
+    }
+
+    private MQProducer createTargetProducer(Destination destination) throws JMSException {
         MQProducer producer;
+
+        if (destination == null) {
+            throw new JMSException("Destination can not be null.");
+        }
+
         String name = destination.toString() + "_" + UUID.randomUUID();
 
         if (!getTransacted()) {
@@ -127,17 +188,12 @@ public class MQSession implements Session, QueueSession {
             ((DefaultMQProducer)producer).setInstanceName(name);
         }
 
-        try {
-            producer.start();
-            return new MQMessageProducer(producer, destination);
-        } catch (Exception ex) {
-            throw JMSExceptionSupport.create(ex);
-        }
+        return producer;
     }
 
     @Override
     public MessageConsumer createConsumer(Destination destination) throws JMSException {
-        throw new JMSException(Thread.currentThread().getStackTrace()[1].getMethodName() + ": Not supported");
+        return createConsumer(destination, null);
     }
 
     @Override
@@ -153,12 +209,13 @@ public class MQSession implements Session, QueueSession {
             target.setInstanceName(name);
         }
 
-        try {
-            target.start();
-        } catch (MQClientException ex) {
-            throw JMSExceptionSupport.create(ex);
+        if (destination instanceof Topic) {
+            target.setMessageModel(MessageModel.BROADCASTING);
+        } else {
+            target.setMessageModel(MessageModel.CLUSTERING);
         }
-        return new MQMessageConsumer(target, destination.toString());
+
+        return new MQMessageConsumer(this, target, destination.toString(), messageSelector);
     }
 
     @Override
@@ -172,18 +229,18 @@ public class MQSession implements Session, QueueSession {
 
     @Override
     public Queue createQueue(String queueName) throws JMSException {
-        throw new JMSException(Thread.currentThread().getStackTrace()[1].getMethodName() + ": Not supported");
+        return new MQQueue(queueName);
     }
 
     @Override
     public Topic createTopic(String topicName) throws JMSException {
-        throw new JMSException(Thread.currentThread().getStackTrace()[1].getMethodName() + ": Not supported");
+        return new MQTopic(topicName);
     }
 
     @Override
     public TopicSubscriber createDurableSubscriber(Topic topic, String name)
             throws JMSException {
-        throw new JMSException(Thread.currentThread().getStackTrace()[1].getMethodName() + ": Not supported");
+        return createDurableSubscriber(topic, name, null, false);
     }
 
     @Override
@@ -193,7 +250,11 @@ public class MQSession implements Session, QueueSession {
             String messageSelector,
             boolean noLocal)
             throws JMSException {
-        throw new JMSException(Thread.currentThread().getStackTrace()[1].getMethodName() + ": Not supported");
+        DefaultMQPushConsumer target = new DefaultMQPushConsumer(name);
+        target.setInstanceName(name);
+        target.setMessageModel(MessageModel.BROADCASTING);
+
+        return new MQTopicSubscriber(this, target, topic.toString(), messageSelector);
     }
 
     @Override
@@ -237,5 +298,21 @@ public class MQSession implements Session, QueueSession {
     @Override
     public QueueSender createSender(Queue queue) throws JMSException {
         throw new JMSException(Thread.currentThread().getStackTrace()[1].getMethodName() + ": Not supported");
+    }
+
+    public void addProducer(MQMessageProducer producer) {
+        producers.add(producer);
+    }
+
+    public void removeProducer(MQMessageProducer producer) {
+        producers.remove(producer);
+    }
+
+    public void addConsumer(MQMessageConsumer consumer) {
+        consumers.add(consumer);
+    }
+
+    public void removeConsumer(MQMessageConsumer consumer) {
+        consumers.remove(consumer);
     }
 }

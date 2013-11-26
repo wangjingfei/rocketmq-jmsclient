@@ -8,10 +8,10 @@ public class MQTopic extends MQDestination implements Topic {
         super(name);
     }
     public String getTopicName() throws JMSException {
-        return "TopicName";
+        return name;
     }
 
     public String toString() {
-        return "TopicName";
+        return "Topic_" + name;
     }
 }

@@ -3,9 +3,10 @@ package com.rocketmq.community.jms;
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
 import javax.jms.JMSException;
+import javax.jms.QueueConnectionFactory;
 import java.util.Properties;
 
-public class MQConnectionFactory implements ConnectionFactory {// , QueueConnectionFactory, TopicConnectionFactory {
+public class MQConnectionFactory implements ConnectionFactory{// , QueueConnectionFactory , TopicConnectionFactory {
     private Properties properties;
 
     public void setProperties(Properties properties) {

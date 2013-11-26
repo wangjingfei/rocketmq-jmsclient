@@ -23,10 +23,10 @@ public class ObjectMessageImpl extends MessageBase implements ObjectMessage {
         }
 
         Message message = new Message(this.getJMSDestination().toString(), // topic
-                JMS_SOURCE,  // tag
+                JMS_SOURCE + getTag(),  // tag
                 content);  // body
         message.putProperty(MSG_TYPE_NAME, MessageTypeEnum.ObjectMessage.toString());
-
+        copyProperties(message);
         return message;
     }
 

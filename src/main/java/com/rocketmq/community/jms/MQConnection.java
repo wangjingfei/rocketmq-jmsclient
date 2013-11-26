@@ -1,9 +1,13 @@
 package com.rocketmq.community.jms;
 
 import javax.jms.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 
-public class MQConnection implements Connection, TopicConnection, QueueConnection {
+// 支持多线程调用
+public class MQConnection implements TopicConnection, QueueConnection {
     private ExceptionListener exceptionListener;
+    private String clientID;
+    private CopyOnWriteArrayList<MQSession> sessions;
 
     // Implement Connection
 
@@ -17,18 +21,21 @@ public class MQConnection implements Connection, TopicConnection, QueueConnectio
                         "Session.CLIENT_ACKNOWLEDGE (2), Session.DUPS_OK_ACKNOWLEDGE (3), ActiveMQSession.INDIVIDUAL_ACKNOWLEDGE (4) or for transacted sessions Session.SESSION_TRANSACTED (0)");
             }
         }
+
+        sessions = new CopyOnWriteArrayList<MQSession>();
+
         return new MQSession(this, transacted ? Session.SESSION_TRANSACTED : (acknowledgeMode == Session.SESSION_TRANSACTED
                 ? Session.AUTO_ACKNOWLEDGE : acknowledgeMode));
     }
 
     @Override
     public String getClientID() throws JMSException {
-        throw new JMSException("Not supported");
+        return clientID;
     }
 
     @Override
     public void setClientID(String clientID) throws JMSException {
-        throw new JMSException("Not supported");
+        this.clientID = clientID;
     }
 
     @Override
@@ -48,7 +55,9 @@ public class MQConnection implements Connection, TopicConnection, QueueConnectio
 
     @Override
     public void start() throws JMSException {
-        throw new JMSException("Not supported");
+        for (MQSession session : sessions) {
+            session.start();
+        }
     }
 
     @Override
@@ -58,7 +67,9 @@ public class MQConnection implements Connection, TopicConnection, QueueConnectio
 
     @Override
     public void close() throws JMSException {
-        throw new JMSException("Not supported");
+        for (MQSession session : sessions) {
+            session.close();
+        }
     }
 
     @Override
@@ -114,5 +125,13 @@ public class MQConnection implements Connection, TopicConnection, QueueConnectio
             int maxMessages)
             throws JMSException {
         throw new JMSException("Not supported");
+    }
+
+    public void addSession(MQSession session) {
+        sessions.add(session);
+    }
+
+    public void removeSession(MQSession session) {
+        sessions.remove(session);
     }
 }

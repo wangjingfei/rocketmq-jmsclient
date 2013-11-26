@@ -1,21 +1,24 @@
 package com.rocketmq.community.jms;
 
+import com.alibaba.rocketmq.client.exception.MQClientException;
 import com.alibaba.rocketmq.client.producer.MQProducer;
 import com.rocketmq.community.jms.message.MessageBase;
 import com.rocketmq.community.jms.util.JMSExceptionSupport;
 
-import javax.jms.Destination;
-import javax.jms.JMSException;
-import javax.jms.Message;
-import javax.jms.MessageProducer;
+import javax.jms.*;
 
 public class MQMessageProducer implements MessageProducer {
-    private MQProducer targetProducer;
-    private Destination destination;
+    protected MQProducer targetProducer;
+    protected Destination destination;
+    protected MQSession session;
+    protected Boolean started;
 
-    MQMessageProducer(MQProducer producer, Destination dest) {
+    MQMessageProducer(MQSession session, MQProducer producer, Destination dest) throws JMSException {
+        this.session = session;
         targetProducer = producer;
         destination = dest;
+        session.addProducer(this);
+        started = true;
     }
 
     @Override
@@ -75,7 +78,15 @@ public class MQMessageProducer implements MessageProducer {
 
     @Override
     public void close() throws JMSException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        try {
+            if (started) {
+                targetProducer.shutdown();
+                session.removeProducer(this);
+                started = false;
+            }
+        } catch (Exception ex) {
+            throw JMSExceptionSupport.create(ex);
+        }
     }
 
     @Override
@@ -84,6 +95,16 @@ public class MQMessageProducer implements MessageProducer {
 
     @Override
     public void send(Message message, int deliveryMode, int priority, long timeToLive) throws JMSException {
+        send(destination, message, deliveryMode, priority, timeToLive);
+    }
+
+    @Override
+    public void send(Destination destination, Message message) throws JMSException {
+        send(destination, message, 0, 0, 0);
+    }
+
+    @Override
+    public void send(Destination destination, Message message, int deliveryMode, int priority, long timeToLive) throws JMSException {
         message.setJMSDestination(destination);
         com.alibaba.rocketmq.common.message.Message convertedMsg = ((MessageBase)message).convert();
         try {
@@ -93,13 +114,11 @@ public class MQMessageProducer implements MessageProducer {
         }
     }
 
-    @Override
-    public void send(Destination destination, Message message) throws JMSException {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public void send(Destination destination, Message message, int deliveryMode, int priority, long timeToLive) throws JMSException {
-        //To change body of implemented methods use File | Settings | File Templates.
+    public void start() throws JMSException {
+        try {
+            targetProducer.start();
+        } catch (MQClientException ex) {
+            throw JMSExceptionSupport.create(ex);
+        }
     }
 }

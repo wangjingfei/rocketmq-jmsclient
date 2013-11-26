@@ -19,20 +19,20 @@
         </property>
     </bean>
 
-    <bean id="jndiQueueConnectionFactory" class="org.springframework.jndi.JndiObjectFactoryBean">
+    <bean id="jndiTopicConnectionFactory" class="org.springframework.jndi.JndiObjectFactoryBean">
         <property name="jndiTemplate" ref="jndiTemplate"/>
-        <property name="jndiName" value="QueueCF"/>
+        <property name="jndiName" value="DestinationCF"/>
     </bean>
 
-    <bean id="queueConnectionFactory" class="org.springframework.jms.connection.CachingConnectionFactory">
-        <property name="targetConnectionFactory" ref="jndiQueueConnectionFactory"/>
+    <bean id="topicConnectionFactory" class="org.springframework.jms.connection.CachingConnectionFactory">
+        <property name="targetConnectionFactory" ref="jndiTopicConnectionFactory"/>
         <property name="sessionCacheSize" value="1"/>
     </bean>
 
-    <bean id="queueDestination"
+    <bean id="topicDestination"
           class="org.springframework.jndi.JndiObjectFactoryBean">
         <property name="jndiTemplate" ref="jndiTemplate"/>
-        <property name="jndiName" value="queue1"/>
+        <property name="jndiName" value="topic1"/>
     </bean>
 
     <bean id="destinationResolver" class="org.springframework.jms.support.destination.JndiDestinationResolver">
@@ -42,14 +42,14 @@
     </bean>
 
     <bean id="jmsTemplate" class="org.springframework.jms.core.JmsTemplate">
-        <property name="connectionFactory" ref="queueConnectionFactory"/>
+        <property name="connectionFactory" ref="topicConnectionFactory"/>
         <property name="destinationResolver" ref="destinationResolver"/>
-        <property name="defaultDestinationName" value="queue1"/>
-        <property name="pubSubDomain" value="false"/>
+        <property name="defaultDestinationName" value="topic1"/>
+        <property name="pubSubDomain" value="true"/>
     </bean>
 
     <bean id="jmsProducer" class="com.rocketmq.community.jms.helper.JmsProducer">
         <property name="jmsTemplate" ref="jmsTemplate"/>
-        <property name="queueName" value="queue1"/>
+        <property name="destinationName" value="topic1"/>
     </bean>
 </beans>

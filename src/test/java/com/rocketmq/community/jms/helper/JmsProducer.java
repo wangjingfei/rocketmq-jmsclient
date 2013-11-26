@@ -39,7 +39,7 @@ public class JmsProducer {
             }
         };
 
-        jmsTemplate.send(queueName, msg);
+        jmsTemplate.send(destinationName, msg);
     }
 
     public void sendMapMessage() {
@@ -56,7 +56,7 @@ public class JmsProducer {
             }
         };
 
-        jmsTemplate.send(queueName, msg);
+        jmsTemplate.send(destinationName, msg);
     }
 
     public void sendBytesMessage() {
@@ -71,7 +71,7 @@ public class JmsProducer {
             }
         };
 
-        jmsTemplate.send(queueName, msg);
+        jmsTemplate.send(destinationName, msg);
     }
 
     public void sendStreamMessage() {
@@ -84,7 +84,7 @@ public class JmsProducer {
             }
         };
 
-        jmsTemplate.send(queueName, msg);
+        jmsTemplate.send(destinationName, msg);
     }
 
     public void sendObjectMessage() {
@@ -96,18 +96,18 @@ public class JmsProducer {
             }
         };
 
-        jmsTemplate.send(queueName, msg);
+        jmsTemplate.send(destinationName, msg);
     }
 
     public JmsTemplate jmsTemplate = null;
-    public String queueName = null;
+    public String destinationName = null;
 
     public void setJmsTemplate(JmsTemplate jmsTemplate) {
         this.jmsTemplate = jmsTemplate;
     }
 
-    public void setQueueName(String queueName) {
-        this.queueName = queueName;
+    public void setDestinationName(String destinationName) {
+        this.destinationName = destinationName;
     }
 }
 
