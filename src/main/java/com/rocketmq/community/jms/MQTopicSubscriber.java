@@ -12,13 +12,6 @@ import javax.jms.JMSException;
 import javax.jms.Topic;
 import javax.jms.TopicSubscriber;
 
-/**
- * Created with IntelliJ IDEA.
- * User: CalvinZhan
- * Date: 11/25/13
- * Time: 2:19 PM
- * To change this template use File | Settings | File Templates.
- */
 public class MQTopicSubscriber extends MQMessageConsumer implements TopicSubscriber {
     public MQTopicSubscriber(MQSession session, MQPushConsumer consumer, String topic, String tag) throws JMSException {
         super(session, consumer, topic, tag);
