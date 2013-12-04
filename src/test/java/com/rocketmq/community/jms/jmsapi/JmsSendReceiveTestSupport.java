@@ -1,5 +1,7 @@
 package com.rocketmq.community.jms.jmsapi;
 
+import com.alibaba.rocketmq.broker.BrokerStartup;
+import com.alibaba.rocketmq.namesrv.NamesrvStartup;
 import com.rocketmq.community.jms.MQConnectionFactory;
 import com.rocketmq.community.jms.MQQueue;
 import com.rocketmq.community.jms.MQTopic;
@@ -30,6 +32,10 @@ public abstract class JmsSendReceiveTestSupport extends TestBase implements Mess
 
     protected void setUp() throws Exception {
         super.setUp();
+        NamesrvStartup.main(null);
+        BrokerStartup.main(null);
+
+
         String temp = System.getProperty("messageCount");
 
         if (temp != null) {
@@ -172,6 +178,7 @@ public abstract class JmsSendReceiveTestSupport extends TestBase implements Mess
     }
 
     private int counter;
+    protected int notifyCount;
     protected void consumeMessage(Message message, List<Message> messageList) {
         LOG.info("Received message: " + message);
 
@@ -180,6 +187,7 @@ public abstract class JmsSendReceiveTestSupport extends TestBase implements Mess
         if (counter >= data.length) {
             synchronized (lock) {
                 counter = 0;
+                notifyCount++;
                 lock.notifyAll();
             }
         }

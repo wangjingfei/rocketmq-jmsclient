@@ -2,12 +2,14 @@ package com.rocketmq.community.jms;
 
 import javax.jms.*;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 // 支持多线程调用
 public class MQConnection implements TopicConnection, QueueConnection {
     private ExceptionListener exceptionListener;
     private String clientID;
     private CopyOnWriteArrayList<MQSession> sessions;
+    private AtomicBoolean started = new AtomicBoolean(false);
 
     // Implement Connection
 
@@ -55,14 +57,18 @@ public class MQConnection implements TopicConnection, QueueConnection {
 
     @Override
     public void start() throws JMSException {
-        for (MQSession session : sessions) {
-            session.start();
+        if (sessions != null) {
+            for (MQSession session : sessions) {
+                session.start();
+            }
         }
+
+        started.set(true);
     }
 
     @Override
     public void stop() throws JMSException {
-        throw new JMSException("Not supported");
+        started.set(false);
     }
 
     @Override
@@ -70,6 +76,8 @@ public class MQConnection implements TopicConnection, QueueConnection {
         for (MQSession session : sessions) {
             session.close();
         }
+
+        started.set(false);
     }
 
     @Override
@@ -133,5 +141,9 @@ public class MQConnection implements TopicConnection, QueueConnection {
 
     public void removeSession(MQSession session) {
         sessions.remove(session);
+    }
+
+    public Boolean isStarted() {
+        return started.get();
     }
 }

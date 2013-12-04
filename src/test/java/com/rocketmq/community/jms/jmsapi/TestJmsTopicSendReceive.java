@@ -50,8 +50,8 @@ public class TestJmsTopicSendReceive extends JmsSendReceiveTestSupport {
             publisher.publish((Topic)producerDestination, message);
         }
 
-        for (int i = 0; i < 2; i++) {
-            synchronized (lock) {
+        synchronized (lock) {
+            while (notifyCount < 2) {
                 lock.wait();
             }
         }

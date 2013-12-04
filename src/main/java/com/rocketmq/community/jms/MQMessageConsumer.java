@@ -21,11 +21,12 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MQMessageConsumer implements MessageConsumer {
     private static final Logger log = LoggerFactory.getLogger(MQMessageConsumer.class);
 
-    protected DefaultMQPullConsumer pullConsumer;
+    protected DefaultMQPullConsumer pullConsumer;  // pullConsumer与pushConsumer至少一个是null。不允许身兼双值。
     protected DefaultMQPushConsumer pushConsumer;
     protected MessageListener messageListener;
     private MessageQueue[] mqs;
@@ -36,7 +37,7 @@ public class MQMessageConsumer implements MessageConsumer {
     protected String topic;
     protected String tag;
     protected MQSession session;
-    protected Boolean started;
+    protected AtomicBoolean started = new AtomicBoolean(false);
 
     private static final Map<MessageQueue, Long> offseTable = new HashMap<MessageQueue, Long>();
 
@@ -45,13 +46,18 @@ public class MQMessageConsumer implements MessageConsumer {
 
         if (consumer instanceof DefaultMQPushConsumer) {
             pushConsumer = (DefaultMQPushConsumer)consumer;
+            pullConsumer = null;
         } else {
             pullConsumer = (DefaultMQPullConsumer)consumer;
+            pushConsumer = null;
         }
         this.topic = topic;
         this.tag = tag;
-        started = true;
         session.addConsumer(this);
+
+        if (session.isStarted()) {
+            start();
+        }
     }
 
     @Override
@@ -94,24 +100,42 @@ public class MQMessageConsumer implements MessageConsumer {
 
     @Override
     public Message receive() throws JMSException {
-        final MessageQueue mq = getMq();
-        return receiveInternal(new Callable<PullResult>() {
-            @Override
-            public PullResult call() throws Exception {
-                return pullConsumer.pullBlockIfNotFound(mq, MessageBase.JMS_SOURCE + tag, getMessageQueueOffset(mq), batchSize);
-            }
-        }, mq, 0);
+        int originalMqIndex = mqIndex;
+        boolean firstTime = true;
+        Message message = null;
+
+        while((mqIndex != originalMqIndex || firstTime) && message == null) {
+            firstTime = false;
+            final MessageQueue mq = getMq();
+            message = receiveInternal(new Callable<PullResult>() {
+                @Override
+                public PullResult call() throws Exception {
+                    return pullConsumer.pullBlockIfNotFound(mq, MessageBase.JMS_SOURCE + tag, getMessageQueueOffset(mq), batchSize);
+                }
+            }, mq, 0);
+        }
+
+        return message;
     }
 
     @Override
     public Message receive(long timeout) throws JMSException {
-        final MessageQueue mq = getMq();
-        return receiveInternal(new Callable<PullResult>() {
-            @Override
-            public PullResult call() throws Exception {
-                return pullConsumer.pull(mq, MessageBase.JMS_SOURCE + tag, getMessageQueueOffset(mq), batchSize);
-            }
-        }, mq, timeout);
+        int originalMqIndex = mqIndex;
+        boolean firstTime = true;
+        Message message = null;
+
+        while((mqIndex != originalMqIndex || firstTime) && message == null) {
+            firstTime = false;
+            final MessageQueue mq = getMq();
+            message = receiveInternal(new Callable<PullResult>() {
+                @Override
+                public PullResult call() throws Exception {
+                    return pullConsumer.pull(mq, MessageBase.JMS_SOURCE + (tag == null ? "" : tag), getMessageQueueOffset(mq), batchSize);
+                }
+            }, mq, timeout);
+        }
+
+        return message;
     }
 
     private MessageQueue getMq() throws JMSException {
@@ -125,7 +149,6 @@ public class MQMessageConsumer implements MessageConsumer {
         }
 
         MessageQueue mq = mqs[mqIndex];
-        System.out.println("Consume from the queue: " + mq);
 
         return mq;
     }
@@ -144,6 +167,7 @@ public class MQMessageConsumer implements MessageConsumer {
                 putMessageQueueOffset(mq, pullResult.getNextBeginOffset());
                 switch (pullResult.getPullStatus()) {
                     case FOUND:
+                        log.debug("Got message from mq {}", mqIndex);
                         result = convertToJmsMessage(pullResult.getMsgFoundList().get(consumingMsgIndex));
                         consumingMsgIndex++;
                         consumingMsgIndex = consumingMsgIndex < pullResult.getMsgFoundList().size() ? consumingMsgIndex : 0;
@@ -154,8 +178,14 @@ public class MQMessageConsumer implements MessageConsumer {
                         }
                         break;
                     case NO_MATCHED_MSG:
+                        consumingMsgIndex = 0;
+                        mqIndex++;
+                        mqIndex %= mqs.length;
                         break;
                     case NO_NEW_MSG:
+                        consumingMsgIndex = 0;
+                        mqIndex++;
+                        mqIndex %= mqs.length;
                         break;
                     case OFFSET_ILLEGAL:
                         break;
@@ -222,11 +252,15 @@ public class MQMessageConsumer implements MessageConsumer {
     public void close() throws JMSException {
         if (pullConsumer != null) {
             pullConsumer.shutdown();
+            pullConsumer = null;
         }
 
         if (pushConsumer != null) {
             pushConsumer.shutdown();
+            pushConsumer = null;
         }
+
+        started.set(false);
     }
 
 
@@ -248,11 +282,13 @@ public class MQMessageConsumer implements MessageConsumer {
             if (pullConsumer != null) {
                 pullConsumer.start();
                 log.info("Rocket pull consumer started");
+                started.set(true);
                 return;
             }
 
             if (pushConsumer != null) {
                 pushConsumer.start();
+                started.set(true);
                 log.info("Rocket push consumer started");
                 return;
             }

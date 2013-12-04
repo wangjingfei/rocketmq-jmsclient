@@ -6,19 +6,22 @@ import com.rocketmq.community.jms.message.MessageBase;
 import com.rocketmq.community.jms.util.JMSExceptionSupport;
 
 import javax.jms.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MQMessageProducer implements MessageProducer {
     protected MQProducer targetProducer;
     protected Destination destination;
     protected MQSession session;
-    protected Boolean started;
+    protected AtomicBoolean started = new AtomicBoolean(false);
 
     MQMessageProducer(MQSession session, MQProducer producer, Destination dest) throws JMSException {
         this.session = session;
         targetProducer = producer;
         destination = dest;
         session.addProducer(this);
-        started = true;
+        if (session.isStarted()) {
+            start();
+        }
     }
 
     @Override
@@ -79,10 +82,11 @@ public class MQMessageProducer implements MessageProducer {
     @Override
     public void close() throws JMSException {
         try {
-            if (started) {
+            if (started.get()) {
                 targetProducer.shutdown();
+                targetProducer = null;
                 session.removeProducer(this);
-                started = false;
+                started.set(false);
             }
         } catch (Exception ex) {
             throw JMSExceptionSupport.create(ex);
@@ -108,6 +112,11 @@ public class MQMessageProducer implements MessageProducer {
         message.setJMSDestination(destination);
         com.alibaba.rocketmq.common.message.Message convertedMsg = ((MessageBase)message).convert();
         try {
+            if (!started.get()) {
+                targetProducer.start();
+                started.set(true);
+            }
+
             targetProducer.send(convertedMsg);
         } catch (Exception ex) {
             throw JMSExceptionSupport.create(ex);
@@ -116,7 +125,10 @@ public class MQMessageProducer implements MessageProducer {
 
     public void start() throws JMSException {
         try {
-            targetProducer.start();
+            if (!started.get()) {
+                targetProducer.start();
+                started.set(true);
+            }
         } catch (MQClientException ex) {
             throw JMSExceptionSupport.create(ex);
         }

@@ -53,7 +53,7 @@ public abstract class MessageBase implements javax.jms.Message {
     }
 
     public String getTag() {
-        return tag;
+        return tag == null ? "" : tag;
     }
 
     public void setTag(String tag) {

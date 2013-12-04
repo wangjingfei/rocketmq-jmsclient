@@ -17,20 +17,26 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MQSession implements QueueSession, TopicSession {
     private MQConnection connection;
     int acknowledgeMode;
     private List<MQMessageProducer> producers;
     private List<MQMessageConsumer> consumers;
+    private AtomicBoolean started = new AtomicBoolean(false);
 
 
-    public MQSession(MQConnection connection, int acknowledgeMode) {
+    public MQSession(MQConnection connection, int acknowledgeMode) throws JMSException {
         this.connection = connection;
         this.acknowledgeMode = acknowledgeMode;
         producers = new CopyOnWriteArrayList<MQMessageProducer>();
         consumers = new CopyOnWriteArrayList<MQMessageConsumer>();
         connection.addSession(this);
+
+        if (connection.isStarted()) {
+            start();
+        }
     }
 
     @Override
@@ -126,15 +132,21 @@ public class MQSession implements QueueSession, TopicSession {
             consumer.close();
         }
         consumers.clear();
+
+        started.set(false);
     }
 
     protected void start() throws JMSException {
-        for (MQMessageProducer producer : producers) {
-            producer.start();
-        }
+        if (!isStarted()) {
+            for (MQMessageProducer producer : producers) {
+                producer.start();
+            }
 
-        for (MQMessageConsumer consumer : consumers) {
-            consumer.start();
+            for (MQMessageConsumer consumer : consumers) {
+                consumer.start();
+            }
+
+            started.set(true);
         }
     }
 
@@ -314,5 +326,9 @@ public class MQSession implements QueueSession, TopicSession {
 
     public void removeConsumer(MQMessageConsumer consumer) {
         consumers.remove(consumer);
+    }
+
+    public Boolean isStarted() {
+        return started.get();
     }
 }
