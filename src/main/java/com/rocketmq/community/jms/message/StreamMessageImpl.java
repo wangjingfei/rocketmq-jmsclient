@@ -179,7 +179,7 @@ public class StreamMessageImpl extends SequenceMessageImpl implements StreamMess
 
     @Override
     protected void setMessageTypeProperty(Message message) {
-        message.putProperty(MSG_TYPE_NAME, MessageTypeEnum.StreamMessage.toString());
+        message.putUserProperty(MSG_TYPE_NAME, MessageTypeEnum.StreamMessage.toString());
     }
 
     @Override

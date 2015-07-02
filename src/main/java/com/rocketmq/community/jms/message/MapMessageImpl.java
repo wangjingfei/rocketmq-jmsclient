@@ -330,7 +330,7 @@ public class MapMessageImpl extends MessageBase implements MapMessage{
         Message message = new Message(this.getJMSDestination().toString(), // topic
                 JMS_SOURCE + getTag(),  // tag
                 RemotingSerializableEx.encodeWithClass(map));  // body
-        message.putProperty(MSG_TYPE_NAME, MessageTypeEnum.MapMessage.toString());
+        message.putUserProperty(MSG_TYPE_NAME, MessageTypeEnum.MapMessage.toString());
         copyProperties(message);
         return message;
     }

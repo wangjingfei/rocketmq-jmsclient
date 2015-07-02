@@ -341,7 +341,7 @@ public abstract class MessageBase implements javax.jms.Message {
             String key = JMS_SOURCE + (String)entry.getKey();
             String value = (String)entry.getValue();
 
-            message.putProperty(key, value);
+            message.putUserProperty(key, value);
         }
     }
 

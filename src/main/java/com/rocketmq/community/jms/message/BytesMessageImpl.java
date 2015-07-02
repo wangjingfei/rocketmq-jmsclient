@@ -23,7 +23,7 @@ public class BytesMessageImpl extends SequenceMessageImpl implements BytesMessag
 
     @Override
     protected void setMessageTypeProperty(Message message) {
-        message.putProperty(MSG_TYPE_NAME, MessageTypeEnum.BytesMessage.toString());
+        message.putUserProperty(MSG_TYPE_NAME, MessageTypeEnum.BytesMessage.toString());
     }
 
     protected void initializeReading() throws JMSException {
