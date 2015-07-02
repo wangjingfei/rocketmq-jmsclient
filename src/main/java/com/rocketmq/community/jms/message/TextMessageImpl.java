@@ -21,7 +21,7 @@ public class TextMessageImpl extends MessageBase implements TextMessage {
         checkReadOnly();
         text = string;
     }
-
+    
     @Override
     public String getText() throws JMSException {
         return text;
@@ -40,9 +40,9 @@ public class TextMessageImpl extends MessageBase implements TextMessage {
         }
 
         Message message = new Message(this.getJMSDestination().toString(), // topic
-                JMS_SOURCE + getTag(),  // tag
-                text.getBytes());  // body
-        message.putProperty(MSG_TYPE_NAME, MessageTypeEnum.TextMessage.toString());
+            JMS_SOURCE + getTag(), // tag
+            text.getBytes()); // body
+        message.putUserProperty(MSG_TYPE_NAME, MessageTypeEnum.TextMessage.toString());
 
         copyProperties(message);
         return message;
